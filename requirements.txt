@@ -1,0 +1,4 @@
+ursina
+perlin-noise
+Pillow
+psutil
