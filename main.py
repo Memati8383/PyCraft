@@ -663,42 +663,63 @@ class SimpleRainSystem:
         print("[YAĞMUR] SimpleRainSystem başlatıldı!")
         
     def load_sounds(self):
-        """Ses dosyalarını yükle - Sadece rain.wav kullanımı"""
+        """Ses dosyalarını yükle - Yeni environment sesleri ile"""
         try:
+            # Yağmur sesleri (rain1-4.wav)
             self.sound_cache['rain_variants'] = []
+            for i in range(1, 5):
+                rain_path = f'assets/sounds/environment/rain{i}.wav'
+                if os.path.exists(rain_path):
+                    audio = Audio(rain_path, loop=True, autoplay=False, volume=0.7)
+                    self.sound_cache['rain_variants'].append(audio)
             
-            # Yağmur sesi için sadece rain.wav kullan
-            rain_path = 'assets/sounds/env/rain.wav'
-            if os.path.exists(rain_path):
-                audio = Audio(rain_path, loop=True, autoplay=False, volume=0.7)
-                self.sound_cache['rain_variants'].append(audio)
-                self.sound_cache['rain'] = audio
+            # Şiddetli yağmur sesleri (heavy_rain1-2.wav)
+            self.sound_cache['heavy_rain_variants'] = []
+            for i in range(1, 3):
+                path = f'assets/sounds/environment/heavy_rain{i}.wav'
+                if os.path.exists(path):
+                    audio = Audio(path, loop=True, autoplay=False, volume=0.8)
+                    self.sound_cache['heavy_rain_variants'].append(audio)
             
-            # Gök gürültüsü sesleri listesi (Thunder1-3.ogg)
+            # Gök gürültüsü sesleri (thunder1-3.wav)
             self.sound_cache['thunder_variants'] = []
             for i in range(1, 4):
-                path = f'assets/sounds/env/Thunder{i}.ogg'
+                path = f'assets/sounds/environment/thunder{i}.wav'
                 if os.path.exists(path):
                     self.sound_cache['thunder_variants'].append(Audio(
                         path, loop=False, autoplay=False, volume=0.9
                     ))
             
-            # Splash sesi
-            splash_path = 'assets/sounds/env/splash.wav'
+            # Şimşek sesleri (lightning1-2.wav)
+            self.sound_cache['lightning_variants'] = []
+            for i in range(1, 3):
+                path = f'assets/sounds/environment/lightning{i}.wav'
+                if os.path.exists(path):
+                    self.sound_cache['lightning_variants'].append(Audio(
+                        path, loop=False, autoplay=False, volume=0.8
+                    ))
+            
+            # Rüzgar sesleri (wind1-3.wav)
+            self.sound_cache['wind_variants'] = []
+            for i in range(1, 4):
+                path = f'assets/sounds/environment/wind{i}.wav'
+                if os.path.exists(path):
+                    audio = Audio(path, loop=True, autoplay=False, volume=0.4)
+                    self.sound_cache['wind_variants'].append(audio)
+            
+            # Splash sesi (damla çarpma)
+            splash_path = 'assets/sounds/block/place.wav'  # Geçici olarak place sesini kullan
             if os.path.exists(splash_path):
                 self.sound_cache['splash'] = Audio(
-                    splash_path, loop=False, autoplay=False, volume=0.5
+                    splash_path, loop=False, autoplay=False, volume=0.3
                 )
-            
-            # Gök gürültüsü için varsayılan kontrolü
-            if not self.sound_cache['thunder_variants']:
-                default_thunder = 'assets/sounds/env/thunder.wav'
-                if os.path.exists(default_thunder):
-                    audio = Audio(default_thunder, loop=False, autoplay=False, volume=0.9)
-                    self.sound_cache['thunder_variants'].append(audio)
-                    self.sound_cache['thunder'] = audio
 
-            print(f"[YAĞMUR] Sabit yağmur sesi (rain.wav) ve {len(self.sound_cache.get('thunder_variants', []))} gök gürültüsü varyantı yüklendi!")
+            print(f"[YAĞMUR] Sesler yüklendi:")
+            print(f"  - {len(self.sound_cache.get('rain_variants', []))} yağmur sesi")
+            print(f"  - {len(self.sound_cache.get('heavy_rain_variants', []))} şiddetli yağmur sesi")
+            print(f"  - {len(self.sound_cache.get('thunder_variants', []))} gök gürültüsü")
+            print(f"  - {len(self.sound_cache.get('lightning_variants', []))} şimşek sesi")
+            print(f"  - {len(self.sound_cache.get('wind_variants', []))} rüzgar sesi")
             
         except Exception as e:
             print(f"[YAĞMUR] Ses yükleme hatası: {e}")
@@ -716,13 +737,21 @@ class SimpleRainSystem:
         print(f"[YAĞMUR] {rain_type.title()} yağmur başladı!")
         print(f"[YAĞMUR] Max parçacık: {self.max_particles}")
         
-        # Yağmur sesini başlat/güncelle
-        rain_variants = self.sound_cache.get('rain_variants', [])
+        # Yağmur türüne göre ses seç
+        if rain_type in ['heavy', 'storm']:
+            # Şiddetli yağmur için heavy_rain sesleri
+            rain_variants = self.sound_cache.get('heavy_rain_variants', [])
+            if not rain_variants:
+                rain_variants = self.sound_cache.get('rain_variants', [])
+        else:
+            # Normal yağmur sesleri
+            rain_variants = self.sound_cache.get('rain_variants', [])
+        
         if rain_variants:
             try:
-                # Önce tüm varyantları durdur
-                for rv in rain_variants:
-                    rv.stop()
+                # Önce tüm aktif yağmur seslerini durdur
+                if 'active_rain' in self.sound_cache and self.sound_cache['active_rain']:
+                    self.sound_cache['active_rain'].stop()
                 
                 # Rastgele bir varyant seç ve oynat
                 active_rain = random.choice(rain_variants)
@@ -731,19 +760,25 @@ class SimpleRainSystem:
                 active_rain.volume = volume
                 active_rain.play()
                 self.sound_cache['active_rain'] = active_rain
-                print(f"[YAĞMUR] Varyant yağmur sesi başlatıldı! Ses seviyesi: {volume}")
-            except Exception as e:
-                print(f"[YAĞMUR] Çoklu ses hatası: {e}")
-        elif 'rain' in self.sound_cache and self.sound_cache['rain']:
-            try:
-                rain_data = self.rain_types[rain_type]
-                volume = rain_data.get('volume', 0.6)
-                self.sound_cache['rain'].volume = volume
-                self.sound_cache['rain'].play()
-                self.sound_cache['active_rain'] = self.sound_cache['rain']
-                print(f"[YAĞMUR] Varsayılan yağmur sesi başlatıldı! Ses seviyesi: {volume}")
+                print(f"[YAĞMUR] Yağmur sesi başlatıldı! Tür: {rain_type}, Ses seviyesi: {volume}")
             except Exception as e:
                 print(f"[YAĞMUR] Ses hatası: {e}")
+        
+        # Rüzgar sesi ekle (fırtınalı havada)
+        if rain_type == 'storm':
+            wind_variants = self.sound_cache.get('wind_variants', [])
+            if wind_variants:
+                try:
+                    if 'active_wind' in self.sound_cache and self.sound_cache['active_wind']:
+                        self.sound_cache['active_wind'].stop()
+                    
+                    active_wind = random.choice(wind_variants)
+                    active_wind.volume = 0.5
+                    active_wind.play()
+                    self.sound_cache['active_wind'] = active_wind
+                    print("[YAĞMUR] Rüzgar sesi eklendi!")
+                except Exception as e:
+                    print(f"[YAĞMUR] Rüzgar ses hatası: {e}")
         
         # Atmosfer efektlerini ayarla
         if rain_type in ['heavy', 'storm']:
@@ -762,9 +797,18 @@ class SimpleRainSystem:
             self.sound_cache['active_rain'].stop()
             self.sound_cache['active_rain'] = None
         
+        # Aktif rüzgar sesini durdur
+        if 'active_wind' in self.sound_cache and self.sound_cache['active_wind']:
+            self.sound_cache['active_wind'].stop()
+            self.sound_cache['active_wind'] = None
+        
         # Tüm varyantları garantiye almak için durdur
         for rv in self.sound_cache.get('rain_variants', []):
             rv.stop()
+        for rv in self.sound_cache.get('heavy_rain_variants', []):
+            rv.stop()
+        for wv in self.sound_cache.get('wind_variants', []):
+            wv.stop()
         
         # Mevcut parçacıkları pool'a geri koy (destroy yerine)
         for particle in self.rain_particles[:]:
@@ -902,22 +946,35 @@ class SimpleRainSystem:
     def create_thunder_effect(self):
         """Gök gürültüsü efekti - fırtınalı havada"""
         if random.random() < 0.01:  # %1 şans her frame'de
-            thunder_variants = self.sound_cache.get('thunder_variants', [])
-            if thunder_variants:
+            # Önce şimşek sesi (kısa ve keskin)
+            lightning_variants = self.sound_cache.get('lightning_variants', [])
+            if lightning_variants:
                 try:
-                    active_thunder = random.choice(thunder_variants)
-                    active_thunder.pitch = random.uniform(0.7, 1.1)
-                    active_thunder.play()
-                    print(f"[YAĞMUR] ⚡ GÖK GÜRÜLTÜSÜ! (Varyant)")
+                    lightning = random.choice(lightning_variants)
+                    lightning.pitch = random.uniform(0.9, 1.2)
+                    lightning.play()
                 except Exception as e:
-                    print(f"[YAĞMUR] Thunder varyant hatası: {e}")
-            elif 'thunder' in self.sound_cache and self.sound_cache['thunder']:
-                try:
-                    self.sound_cache['thunder'].pitch = random.uniform(0.7, 1.1)
-                    self.sound_cache['thunder'].play()
-                    print("[YAĞMUR] ⚡ GÖK GÜRÜLTÜSÜ! (Varsayılan)")
-                except Exception as e:
-                    print(f"[YAĞMUR] Thunder ses hatası: {e}")
+                    print(f"[YAĞMUR] Lightning ses hatası: {e}")
+            
+            # Ardından gök gürültüsü (0.2-0.5 saniye sonra)
+            delay = random.uniform(0.2, 0.5)
+            invoke(self._play_thunder_sound, delay=delay)
+    
+    def _play_thunder_sound(self):
+        """Gök gürültüsü sesini çal (şimşekten sonra)"""
+        thunder_variants = self.sound_cache.get('thunder_variants', [])
+        if thunder_variants:
+            try:
+                active_thunder = random.choice(thunder_variants)
+                active_thunder.pitch = random.uniform(0.7, 1.1)
+                active_thunder.play()
+                print(f"[YAĞMUR] ⚡ GÖK GÜRÜLTÜSÜ!")
+                
+                # Ekran titremesi efekti
+                if hasattr(camera, 'shake'):
+                    camera.shake(duration=0.3, magnitude=1)
+            except Exception as e:
+                print(f"[YAĞMUR] Thunder ses hatası: {e}")
     
     def toggle_rain(self):
         """Yağmuru aç/kapat (test için)"""
